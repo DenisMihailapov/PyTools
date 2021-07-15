@@ -1,5 +1,6 @@
 import os
 print('install torch_pruning...')
+print('this lib was taken from https://github.com/VainF/Torch-Pruning')
 os.execute('!pip install torch_pruning')
 import torch_pruning as tp
 
