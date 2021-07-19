@@ -40,13 +40,13 @@ def get_train_val_dataset_split(DIR_PATH, BATCH_SIZE,  TEST_SIZE = 0.2, SEED = 4
 
 
 
-    train_loader = DataLoader(ImageDataset(train,  DIR_PATH, True),  batch_size=BATCH_SIZE, shuffle=True)
-    val_loader   = DataLoader(ImageDataset(valid,  DIR_PATH, False), batch_size=BATCH_SIZE, shuffle=False)
+    train_loader = DataLoader(ImageClassifDataset(train,  DIR_PATH, True),  batch_size=BATCH_SIZE, shuffle=True)
+    val_loader   = DataLoader(ImageClassifDataset(valid,  DIR_PATH, False), batch_size=BATCH_SIZE, shuffle=False)
 
     return train_loader, val_loader
 
 
-class ImageDataset(Dataset):
+class ImageClassifDataset(Dataset):
     def __init__(self, list_of_classes_pathes, data_path, train_of_test=True, img_size=(224, 224)):
         super().__init__()
         
