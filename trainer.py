@@ -1,6 +1,4 @@
 #This trainer was based on trainer from https://github.com/Emorh/SHIFT_SegmentationProject
-
-
 import os, torch, wandb
 
 from tqdm.notebook import tqdm
@@ -12,48 +10,73 @@ from collections import defaultdict
 class Trainer:
     CHECKPOINTS_PATH = 'checkpoints'
     
-    def __init__(self, model, criterion, metric, config, device='cuda', path = '.',save_file_name = 'weights.pth'):
-        self._model = model
+    def __init__(self, model, criterion, metric, config, device='cuda', path = '.', save_file_name = 'weights.pth', project_name='segmentation project'):
+        
+        self._model     = model
         self._criterion = criterion
-        self._metrics = metric
-        self._device = device
+        self._metrics   = metric
+        self._device    = device
         self._save_file_name = save_file_name
         self._path = path
-        
+        self._config = config
+        self._project_name = project_name
+         
         
         self._model.to(self._device)
-        self._epochs = config['epochs'] 
-        self._early_stopping = config['early_stopping']
-        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=config['lr'])
+
+        self._optimizer = torch.optim.Adam(self._model.parameters(), lr=self._config['lr'])
         
         self._scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             self._optimizer,
             'max',
-            factor=config['lr_reduce_rate'],
-            patience=config['patience'],
+            factor=self._config['lr_reduce_rate'],
+            patience=self._config['patience'],
             verbose=True
         )
-
         
+        wandb.login()
+
         self._best_metric = float('-inf')
         if not os.path.exists(Trainer.CHECKPOINTS_PATH):
             os.makedirs(Trainer.CHECKPOINTS_PATH)
     
     def predict(self, image):
         return self._model(images)
-        
+    
+    def print_config(self):
+        print("Trainer configuration")
+        for key, value in self._config.items():
+            print(f"{key}: {value}")
+        print('-'*15)    
+
+    def update_param(self, model=None, criterion=None, metric=None, config=None, device=None, path = None, save_file_name = None, project_name= None ):
+        if not model is None: self._model = model
+        elif not criterion is None: self._criterion = criterion
+        elif not metric is None: self._metric = metric
+        elif not config is None: self._config = config
+        elif not device is None: self._device = device
+        elif not path is None: self._path = path
+        elif not save_file_name is None: self._save_file_name = save_file_name
+        elif not project_name is None: self._project_name = project_name
+        else: print('There was no update')
     
     def load_weights(self, file_name = 'weights.pth'):
         self._save_file_name = file_name
         self._model.load_state_dict(torch.load(self._get_full_path(file_name)))
     
     def fit(self, train_loader, val_loader):
-        passed_epochs_without_upgrades = 0
+        self.print_config()
+        with wandb.init(project=self._project_name , config=self._config):
+            wandb.watch(self._model, self._criterion, log='all', log_freq=10)
+            self._fit(train_loader, val_loader)
         
-        wandb.watch(self._model, self._criterion, log='all', log_freq=10)
-        for epoch in range(1, self._epochs+1):
+    def _fit(self, train_loader, val_loader):
+
+        passed_epochs_without_upgrades = 0
+
+        for epoch in range(1, self._config['epochs']+1):
             print(f'Epoch {epoch}')
-            if passed_epochs_without_upgrades > self._early_stopping:
+            if passed_epochs_without_upgrades > self._config['early_stopping']:
                 print('Early Stopping!')
                 return 
             
@@ -117,15 +140,15 @@ class Trainer:
     
     def _step(self, data, is_training=True):
         metrics_values = {}
-        images = data['image'].to(self._device)
-        y_true = data['mask'].float().unsqueeze(1).to(self._device)
+        images = data['image'].detach().to(self._device).detach()
+        y_true = data['mask'].detach() .to(self._device).detach()
         
         if is_training:
             self._optimizer.zero_grad()
 
         with torch.set_grad_enabled(is_training):
             y_pred = self._model(images)
-            loss = self._criterion(y_pred, y_true)
+            loss   = self._criterion(y_pred, y_true)
             
             for name, func in self._metrics:
                 value = func(y_true=y_true, y_pred=torch.sigmoid(y_pred))
@@ -137,6 +160,7 @@ class Trainer:
         
         metrics_values['loss'] = loss.item()
         return metrics_values
+        
         
         
         
