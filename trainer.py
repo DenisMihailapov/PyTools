@@ -1,3 +1,6 @@
+#This trainer was based on trainer from https://github.com/Emorh/SHIFT_SegmentationProject
+
+
 import os, torch, wandb
 
 from tqdm.notebook import tqdm
